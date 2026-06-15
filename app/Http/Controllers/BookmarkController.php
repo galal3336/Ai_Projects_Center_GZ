@@ -37,8 +37,8 @@ class BookmarkController extends Controller
         $bookmarks = $request->user()
             ->bookmarkedProjects()
             ->with('project:id,title,slug,thumbnail,stars_count,views_count,bookmarks_count,status,published_at')
-            ->latest('created_at')
-            ->paginate(20);
+            ->latest('project_bookmarks.created_at')
+            ->cursorPaginate(20);
 
         return response()->json($bookmarks);
     }

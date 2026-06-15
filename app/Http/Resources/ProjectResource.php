@@ -19,7 +19,6 @@ class ProjectResource extends JsonResource
             'title'              => $locale === 'ar' ? ($this->title_ar ?? $this->title) : $this->title,
             'title_ar'           => $this->title_ar,
             'title_en'           => $this->title,
-            'subtitle'           => $locale === 'ar' ? ($this->subtitle_ar ?? $this->subtitle) : $this->subtitle,
             'description'        => $locale === 'ar' ? ($this->description_ar ?? $this->description) : $this->description,
             'abstract'           => $locale === 'ar' ? ($this->abstract_ar ?? $this->abstract) : $this->abstract,
 
@@ -45,6 +44,10 @@ class ProjectResource extends JsonResource
             'views_count'        => $this->views_count,
             'downloads_count'    => $this->downloads_count,
             'likes_count'        => $this->likes_count,
+            'stars_count'        => $this->stars_count,
+            'bookmarks_count'    => $this->bookmarks_count,
+            'followers_count'    => $this->followers_count,
+            'trending_score'     => $this->trending_score,
 
             // Flags
             'is_featured'        => $this->is_featured,
@@ -64,7 +67,10 @@ class ProjectResource extends JsonResource
 
             // Rejection notes — only visible to owner/admin
             'rejection_notes'    => $this->when(
-                $request->user()?->can('viewRejectionNotes', $this->resource),
+                // Use pre-computed flag when available (collection context), fall back to Gate for single resource
+                ($this->additional['can_review'] ?? null) !== null
+                    ? ($this->additional['can_review'] || $request->user()?->id === $this->owner_id)
+                    : $request->user()?->can('viewRejectionNotes', $this->resource),
                 $this->rejection_notes,
             ),
 
@@ -99,16 +105,25 @@ class ProjectResource extends JsonResource
                 'released_at'  => $this->latestVersion?->released_at?->toDateString(),
             ]),
 
+            // SEO fields
+            'seo_title'       => $this->seo_title,
+            'seo_description' => $this->seo_description,
+            'seo_keywords'    => $this->seo_keywords ?? [],
+            'canonical_url'   => route('projects.show', [
+                'locale' => app()->getLocale(),
+                'slug'   => $this->slug,
+            ]),
+
             // Admin-only context
             'reviewer'           => $this->when(
-                $request->user()?->can('review', \App\Models\Project::class),
+                $this->additional['can_review'] ?? $request->user()?->can('review', \App\Models\Project::class),
                 fn () => $this->whenLoaded('reviewer', fn () => [
                     'id'   => $this->reviewer->id,
                     'name' => $this->reviewer->name,
                 ]),
             ),
             'reviewed_at'        => $this->when(
-                $request->user()?->can('review', \App\Models\Project::class),
+                $this->additional['can_review'] ?? $request->user()?->can('review', \App\Models\Project::class),
                 $this->reviewed_at?->toIso8601String(),
             ),
         ];

@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard, FolderOpen, Users, Tag, Trophy, Award,
     Home, CreditCard, Languages, Settings, BarChart3, ScrollText,
-    ChevronLeft, ChevronRight, Bell, Search, Menu, X,
+    ChevronLeft, ChevronRight, Search, Menu, X,
     LogOut, User, ChevronDown, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SharedProps } from '@/types';
+import NotificationBell from '@/components/NotificationBell';
 
 interface NavItem {
     label: string;
@@ -65,7 +66,7 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children, title, breadcrumbs }: AdminLayoutProps) {
-    const { auth } = usePage<SharedProps>().props;
+    const { auth, locale } = usePage<SharedProps>().props;
     const user = auth.user;
 
     const [collapsed, setCollapsed] = useState(false);
@@ -310,10 +311,7 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
                             <span>Search</span>
                             <kbd className="ml-2 text-[10px] bg-[#1E293B] px-1 rounded">⌘K</kbd>
                         </button>
-                        <button className="flex items-center justify-center w-8 h-8 rounded-md text-[#475569] hover:text-[#F8FAFC] hover:bg-[#1E293B] transition-colors relative cursor-pointer">
-                            <Bell className="w-4 h-4" />
-                            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-                        </button>
+                        <NotificationBell locale={locale} />
                     </div>
                 </header>
 

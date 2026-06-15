@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\CategoryResource;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,6 +40,7 @@ class CategoryController extends Controller
         $data['slug'] = \Illuminate\Support\Str::slug($data['name']);
 
         Category::create($data);
+        Cache::tags(['categories', 'search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('categories.created'));
     }
@@ -59,6 +61,7 @@ class CategoryController extends Controller
         ]);
 
         $category->update($data);
+        Cache::tags(['categories', 'search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('categories.updated'));
     }
@@ -68,6 +71,7 @@ class CategoryController extends Controller
         $this->authorize('manage', Category::class);
 
         $category->delete();
+        Cache::tags(['categories', 'search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('categories.deleted'));
     }

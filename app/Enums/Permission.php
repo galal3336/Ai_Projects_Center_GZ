@@ -37,8 +37,12 @@ enum Permission: string
     case SubmitProjects    = 'submit_projects';
 
     // ─── Category & Competition management ────────────────────────────
-    case ManageCategories  = 'manage_categories';
+    case ManageCategories   = 'manage_categories';
     case ManageCompetitions = 'manage_competitions';
+    case ManageAwards       = 'manage_awards';
+
+    // ─── Repository management ────────────────────────────────────────
+    case ManageOwnRepositories = 'manage_own_repositories';
 
     // ─── System settings ──────────────────────────────────────────────
     case ViewSettings      = 'view_settings';
@@ -71,6 +75,7 @@ enum Permission: string
             self::RejectProjects->value,
             self::ManageCategories->value,
             self::ManageCompetitions->value,
+            self::ManageAwards->value,
             self::ViewUsers->value,
             self::CreateUsers->value,
             self::EditUsers->value,
@@ -90,6 +95,7 @@ enum Permission: string
             self::ViewOwnAnalytics->value,
             self::ViewProjects->value,
             self::ViewPublicContent->value,
+            self::ManageOwnRepositories->value,
         ];
     }
 

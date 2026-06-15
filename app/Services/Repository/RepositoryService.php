@@ -3,7 +3,11 @@
 namespace App\Services\Repository;
 
 use App\Enums\RepositoryStatus;
+use App\Jobs\ExtractRepositoryZip;
 use App\Models\RepositoryUpload;
+use App\Services\Security\AuditLogService;
+use App\Services\Security\FileUploadSecurityService;
+use App\Services\Security\ZipSecurityScanner;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -12,7 +16,12 @@ use ZipArchive;
 
 class RepositoryService
 {
-    public function __construct(private readonly CodeAnalyticsService $analytics) {}
+    public function __construct(
+        private readonly CodeAnalyticsService $analytics,
+        private readonly ZipSecurityScanner $zipScanner,
+        private readonly FileUploadSecurityService $uploadSecurity,
+        private readonly AuditLogService $audit,
+    ) {}
     private const MAX_ZIP_BYTES    = 100 * 1024 * 1024; // 100 MB
     private const MAX_FILE_BYTES   = 5 * 1024 * 1024;   // 5 MB per file (for reading)
     private const DISK              = 'local';
@@ -35,7 +44,16 @@ class RepositoryService
     {
         $this->validateZip($file);
 
+        // Security scan: zip-bomb, path traversal, blocked extensions
+        try {
+            $this->zipScanner->scan($file);
+        } catch (\InvalidArgumentException $e) {
+            $this->audit->fileUploadRejected($file->getClientOriginalName(), $e->getMessage());
+            throw $e;
+        }
+
         $uploadId    = (string) Str::uuid();
+        // Store using a UUID-based safe filename; never use the user-supplied name on disk
         $zipFilename = $uploadId . '.zip';
         $zipPath     = self::BASE_DIR . '/' . $uploadId . '/' . $zipFilename;
         $extractPath = self::BASE_DIR . '/' . $uploadId . '/extracted';
@@ -58,7 +76,9 @@ class RepositoryService
             'status'            => RepositoryStatus::Processing,
         ]);
 
-        $this->extract($upload);
+        // Dispatch extraction to a queue worker — avoids blocking the HTTP thread
+        // for up to 5 minutes on large ZIPs. Frontend polls status until ready.
+        ExtractRepositoryZip::dispatch($upload);
 
         return $upload->fresh();
     }
@@ -191,8 +211,12 @@ class RepositoryService
         }
     }
 
-    private function buildTree(string $dir, string $root): array
+    private function buildTree(string $dir, string $root, int $depth = 0): array
     {
+        if ($depth > 20) {
+            return [];
+        }
+
         $items = [];
         $entries = scandir($dir);
 
@@ -207,7 +231,7 @@ class RepositoryService
                     'type'     => 'directory',
                     'name'     => $entry,
                     'path'     => $relative,
-                    'children' => $this->buildTree($fullPath, $root),
+                    'children' => $this->buildTree($fullPath, $root, $depth + 1),
                 ];
             } else {
                 $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
@@ -246,7 +270,7 @@ class RepositoryService
         return $count;
     }
 
-    private function walkTree(array $tree, string $prefix, string $query, array &$results): void
+    private function walkTree(array $tree, string $_prefix, string $query, array &$results): void
     {
         $q = strtolower($query);
         foreach ($tree as $node) {

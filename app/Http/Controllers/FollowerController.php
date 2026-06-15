@@ -36,8 +36,8 @@ class FollowerController extends Controller
     {
         $followers = $project->followers()
             ->with('user:id,name,username,avatar')
-            ->latest('created_at')
-            ->paginate(30);
+            ->latest('project_followers.created_at')
+            ->cursorPaginate(30);
 
         return response()->json($followers);
     }
@@ -47,8 +47,8 @@ class FollowerController extends Controller
         $following = $request->user()
             ->followedProjects()
             ->with('project:id,title,slug,thumbnail,stars_count,views_count,followers_count,status,published_at')
-            ->latest('created_at')
-            ->paginate(20);
+            ->latest('project_followers.created_at')
+            ->cursorPaginate(20);
 
         return response()->json($following);
     }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -20,12 +20,8 @@ import {
 } from 'lucide-react';
 import AppLayout from '@/layouts/AppLayout';
 import { cn } from '@/lib/utils';
-import type {
-    Paginated,
-    Project,
-    SearchFacets,
-    SearchFilters,
-} from '@/types';
+import type { Paginated, Project, SearchFacets, SearchFilters } from '@/types';
+import { AmbientBackground, Reveal, fadeUp, scaleIn } from '@/components/ui/design-system';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,16 +36,16 @@ type SortOption = { value: string; label: string; icon: React.ElementType };
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS: SortOption[] = [
-    { value: 'published_at',    label: 'Most Recent',   icon: Zap },
-    { value: 'views_count',     label: 'Most Viewed',   icon: Flame },
-    { value: 'likes_count',     label: 'Most Starred',  icon: Star },
+    { value: 'published_at',    label: 'Most Recent',    icon: Zap },
+    { value: 'views_count',     label: 'Most Viewed',    icon: Flame },
+    { value: 'likes_count',     label: 'Most Starred',   icon: Star },
     { value: 'downloads_count', label: 'Most Downloaded', icon: BookOpen },
 ];
 
 const AWARD_RANKS = [
-    { value: 'first',   label: '1st Place' },
-    { value: 'second',  label: '2nd Place' },
-    { value: 'third',   label: '3rd Place' },
+    { value: 'first',     label: '1st Place' },
+    { value: 'second',    label: '2nd Place' },
+    { value: 'third',     label: '3rd Place' },
     { value: 'honorable', label: 'Honorable' },
 ];
 
@@ -68,14 +64,13 @@ function debounce<T extends (...args: Parameters<T>) => void>(fn: T, delay: numb
 function buildUrl(filters: SearchFilters): string {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
-        if (v !== undefined && v !== null && v !== '' && v !== false) {
+        if (v !== undefined && v !== null && v !== '' && v !== false)
             params.set(k, String(v));
-        }
     }
     return '/search?' + params.toString();
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Active chip ──────────────────────────────────────────────────────────────
 
 function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
     return (
@@ -84,33 +79,35 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#22C55E] text-xs font-medium"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/12 px-3 py-1 text-xs font-medium text-violet-300"
         >
             {label}
             <button
                 type="button"
                 onClick={onRemove}
                 aria-label={`Remove filter: ${label}`}
-                className="hover:text-white transition-colors cursor-pointer leading-none"
+                className="transition-colors hover:text-white cursor-pointer"
             >
-                <X className="w-3 h-3" />
+                <X className="h-3 w-3" />
             </button>
         </motion.span>
     );
 }
 
+// ─── Tech badge ───────────────────────────────────────────────────────────────
+
 function TechBadge({ name, color }: { name: string; color?: string | null }) {
     return (
         <span
-            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border"
+            className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium border"
             style={color ? {
                 borderColor: color + '40',
                 backgroundColor: color + '15',
                 color,
             } : {
-                borderColor: '#334155',
-                backgroundColor: '#1E293B',
-                color: '#94a3b8',
+                borderColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                color: 'rgba(255,255,255,0.5)',
             }}
         >
             {name}
@@ -118,101 +115,103 @@ function TechBadge({ name, color }: { name: string; color?: string | null }) {
     );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+// ─── Project card ─────────────────────────────────────────────────────────────
+
+function ProjectCard({ project, index = 0 }: { project: Project; index?: number }) {
     const hasAward = project.awards && project.awards.length > 0;
 
     return (
         <motion.article
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="group relative flex flex-col rounded-2xl border border-[#1E293B] bg-[#0F172A] overflow-hidden hover:border-[#22C55E]/30 transition-colors duration-200"
+            transition={{ duration: 0.3, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] transition-all duration-300 hover:border-white/[0.13] hover:bg-white/[0.04] hover:-translate-y-0.5"
         >
             {/* Thumbnail */}
-            <div className="relative aspect-[16/9] bg-[#020617] overflow-hidden">
+            <div className="relative aspect-[16/9] overflow-hidden bg-black/30">
                 {project.thumbnail ? (
                     <img
                         src={project.thumbnail}
                         alt={project.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="w-10 h-10 text-[#1E293B]" />
+                    <div className="flex h-full w-full items-center justify-center">
+                        <BookOpen className="h-10 w-10 text-white/[0.07]" />
                     </div>
                 )}
 
-                {/* Featured ribbon */}
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
                 {project.is_featured && (
-                    <span className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-[10px] font-bold text-black uppercase tracking-wider">
-                        <Star className="w-2.5 h-2.5" /> Featured
+                    <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
+                        <Star className="h-2.5 w-2.5" /> Featured
                     </span>
                 )}
 
-                {/* Award ribbon */}
                 {hasAward && (
-                    <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#22C55E]/90 text-[10px] font-bold text-black uppercase tracking-wider">
-                        <Trophy className="w-2.5 h-2.5" /> Award
+                    <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                        <Trophy className="h-2.5 w-2.5" /> Award
                     </span>
                 )}
             </div>
 
             {/* Body */}
-            <div className="flex flex-col flex-1 p-4 gap-3">
-                {/* Category */}
+            <div className="flex flex-1 flex-col gap-3 p-4">
                 {project.category && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[#22C55E]">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-400">
                         {project.category.name}
                     </span>
                 )}
 
-                <h3 className="text-sm font-semibold text-[#F8FAFC] line-clamp-2 leading-snug group-hover:text-[#22C55E] transition-colors duration-150">
+                <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-white/85 transition-colors group-hover:text-white">
                     {project.title}
                 </h3>
 
                 {project.abstract && (
-                    <p className="text-xs text-[#475569] line-clamp-2 leading-relaxed">
+                    <p className="line-clamp-2 text-xs leading-relaxed text-white/40">
                         {project.abstract}
                     </p>
                 )}
 
-                {/* Technologies */}
                 {project.technologies && project.technologies.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-auto pt-1">
+                    <div className="mt-auto flex flex-wrap gap-1 pt-1">
                         {project.technologies.slice(0, 4).map(t => (
                             <TechBadge key={t.id} name={t.name} color={t.color} />
                         ))}
                         {project.technologies.length > 4 && (
-                            <span className="text-[10px] text-[#475569]">
+                            <span className="text-[10px] text-white/30">
                                 +{project.technologies.length - 4}
                             </span>
                         )}
                     </div>
                 )}
 
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-2 border-t border-[#1E293B] mt-auto">
-                    <div className="flex items-center gap-2 text-[10px] text-[#475569]">
+                <div className="mt-auto flex items-center justify-between border-t border-white/[0.05] pt-3">
+                    <div className="flex items-center gap-2 text-[10px] text-white/35">
                         {project.owner && (
                             <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
+                                <Users className="h-3 w-3" />
                                 {project.owner.name}
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-[#475569]">
-                        <span>{project.views_count.toLocaleString()} views</span>
+                    <div className="flex items-center gap-2 text-[10px] text-white/30">
+                        <span className="tabular">{project.views_count.toLocaleString()} views</span>
                         <span>·</span>
-                        <span>{project.likes_count.toLocaleString()} ★</span>
+                        <span className="tabular">{project.likes_count.toLocaleString()} ★</span>
                     </div>
                 </div>
             </div>
 
-            {/* Full card link */}
             <Link href={`/projects/${project.slug}`} className="absolute inset-0" aria-label={project.title} />
         </motion.article>
     );
 }
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
 
 function Pagination({ meta, onPage }: {
     meta: Omit<Paginated<Project>, 'data'>;
@@ -222,36 +221,37 @@ function Pagination({ meta, onPage }: {
 
     const pages: (number | null)[] = [];
     for (let i = 1; i <= meta.last_page; i++) {
-        if (i === 1 || i === meta.last_page || Math.abs(i - meta.current_page) <= 2) {
+        if (i === 1 || i === meta.last_page || Math.abs(i - meta.current_page) <= 2)
             pages.push(i);
-        } else if (pages[pages.length - 1] !== null) {
+        else if (pages[pages.length - 1] !== null)
             pages.push(null);
-        }
     }
+
+    const btnBase = 'flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition-all duration-150 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed';
 
     return (
         <div className="flex items-center justify-center gap-1.5">
             <button
                 disabled={meta.current_page <= 1}
                 onClick={() => onPage(meta.current_page - 1)}
-                className="p-2 rounded-lg border border-[#1E293B] text-[#475569] hover:text-[#F8FAFC] hover:border-[#22C55E]/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className={cn(btnBase, 'border-white/[0.08] text-white/40 hover:border-white/[0.15] hover:text-white/80')}
                 aria-label="Previous page"
             >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="h-4 w-4" />
             </button>
 
             {pages.map((p, i) =>
                 p === null ? (
-                    <span key={`ellipsis-${i}`} className="px-1 text-[#475569] text-sm">…</span>
+                    <span key={`e-${i}`} className="px-1 text-sm text-white/25">…</span>
                 ) : (
                     <button
                         key={p}
                         onClick={() => onPage(p)}
                         className={cn(
-                            'w-8 h-8 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer',
+                            btnBase,
                             p === meta.current_page
-                                ? 'bg-[#22C55E] text-black font-semibold'
-                                : 'border border-[#1E293B] text-[#475569] hover:text-[#F8FAFC] hover:border-[#22C55E]/40',
+                                ? 'border-violet-500/50 bg-violet-500/20 text-violet-300 font-semibold'
+                                : 'border-white/[0.08] text-white/40 hover:border-white/[0.15] hover:text-white/80',
                         )}
                     >
                         {p}
@@ -262,10 +262,10 @@ function Pagination({ meta, onPage }: {
             <button
                 disabled={meta.current_page >= meta.last_page}
                 onClick={() => onPage(meta.current_page + 1)}
-                className="p-2 rounded-lg border border-[#1E293B] text-[#475569] hover:text-[#F8FAFC] hover:border-[#22C55E]/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className={cn(btnBase, 'border-white/[0.08] text-white/40 hover:border-white/[0.15] hover:text-white/80')}
                 aria-label="Next page"
             >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
             </button>
         </div>
     );
@@ -280,105 +280,121 @@ interface FilterPanelProps {
     onClear: () => void;
 }
 
+function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25">{title}</p>
+            {children}
+        </div>
+    );
+}
+
+function SearchInput({ icon: Icon, placeholder, value, onChange }: {
+    icon: React.ElementType;
+    placeholder: string;
+    value: string;
+    onChange: (v: string) => void;
+}) {
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
+            <input
+                type="text"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="w-full rounded-lg border border-white/[0.07] bg-white/[0.03] py-2 pl-8 pr-7 text-xs text-white placeholder:text-white/25 outline-none transition-colors focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+            />
+            {value && (
+                <button
+                    type="button"
+                    onClick={() => onChange('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 transition-colors hover:text-white/70 cursor-pointer"
+                    aria-label="Clear"
+                >
+                    <X className="h-3 w-3" />
+                </button>
+            )}
+        </div>
+    );
+}
+
+function ToggleFilter({ icon: Icon, label, active, onChange }: {
+    icon: React.ElementType;
+    label: string;
+    active: boolean;
+    onChange: (v: boolean) => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={() => onChange(!active)}
+            className={cn(
+                'flex w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-all duration-150',
+                active
+                    ? 'border-violet-500/30 bg-violet-500/10 text-violet-300'
+                    : 'border-white/[0.07] text-white/40 hover:bg-white/[0.04] hover:text-white/70',
+            )}
+        >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            {label}
+            <span className={cn(
+                'ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+                active ? 'border-violet-500 bg-violet-500' : 'border-white/20',
+            )}>
+                {active && <span className="h-2 w-2 rounded-sm bg-white" />}
+            </span>
+        </button>
+    );
+}
+
 function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
     const hasActive = Object.entries(filters).some(
         ([k, v]) => !['sort', 'direction'].includes(k) && v && v !== false && v !== ''
     );
 
     return (
-        <aside className="w-full lg:w-64 shrink-0 space-y-5">
-            {/* Header */}
+        <aside className="w-full shrink-0 space-y-5 lg:w-60">
             <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
-                    <SlidersHorizontal className="w-4 h-4 text-[#22C55E]" />
+                <span className="flex items-center gap-2 text-sm font-semibold text-white/85">
+                    <SlidersHorizontal className="h-4 w-4 text-violet-400" />
                     Filters
                 </span>
                 {hasActive && (
-                    <button
-                        type="button"
-                        onClick={onClear}
-                        className="text-xs text-[#475569] hover:text-[#F8FAFC] transition-colors cursor-pointer"
-                    >
+                    <button type="button" onClick={onClear}
+                        className="cursor-pointer text-xs text-white/35 transition-colors hover:text-white/70">
                         Clear all
                     </button>
                 )}
             </div>
 
-            {/* ── Search by field ────────────────────────────────────── */}
             <FilterSection title="Search By">
-                <SearchInput
-                    icon={BookOpen}
-                    placeholder="Project name…"
-                    value={filters.search ?? ''}
-                    onChange={v => onChange({ search: v || undefined })}
-                />
-                <SearchInput
-                    icon={Users}
-                    placeholder="Student name…"
-                    value={filters.student_name ?? ''}
-                    onChange={v => onChange({ student_name: v || undefined })}
-                />
-                <SearchInput
-                    icon={Award}
-                    placeholder="Supervisor name…"
-                    value={filters.supervisor ?? ''}
-                    onChange={v => onChange({ supervisor: v || undefined })}
-                />
-                <SearchInput
-                    icon={Code2}
-                    placeholder="Technology (e.g. React)…"
-                    value={filters.technology_name ?? ''}
-                    onChange={v => onChange({ technology_name: v || undefined, technology_id: undefined })}
-                />
-                <SearchInput
-                    icon={Trophy}
-                    placeholder="Competition name…"
-                    value={filters.competition_name ?? ''}
-                    onChange={v => onChange({ competition_name: v || undefined, competition_id: undefined })}
-                />
-                <SearchInput
-                    icon={Award}
-                    placeholder="Award title…"
-                    value={filters.award_name ?? ''}
-                    onChange={v => onChange({ award_name: v || undefined })}
-                />
+                <SearchInput icon={BookOpen}  placeholder="Project name…"     value={filters.search ?? ''}           onChange={v => onChange({ search: v || undefined })} />
+                <SearchInput icon={Users}     placeholder="Student name…"     value={filters.student_name ?? ''}     onChange={v => onChange({ student_name: v || undefined })} />
+                <SearchInput icon={Award}     placeholder="Supervisor name…"  value={filters.supervisor ?? ''}       onChange={v => onChange({ supervisor: v || undefined })} />
+                <SearchInput icon={Code2}     placeholder="Technology…"       value={filters.technology_name ?? ''}  onChange={v => onChange({ technology_name: v || undefined, technology_id: undefined })} />
+                <SearchInput icon={Trophy}    placeholder="Competition name…" value={filters.competition_name ?? ''} onChange={v => onChange({ competition_name: v || undefined, competition_id: undefined })} />
+                <SearchInput icon={Award}     placeholder="Award title…"      value={filters.award_name ?? ''}       onChange={v => onChange({ award_name: v || undefined })} />
             </FilterSection>
 
-            {/* ── Smart Filters ──────────────────────────────────────── */}
             <FilterSection title="Smart Filters">
-                <ToggleFilter
-                    icon={Trophy}
-                    label="Winning Projects"
-                    active={!!filters.winning_only}
-                    onChange={v => onChange({ winning_only: v || undefined })}
-                    color="#f59e0b"
-                />
-                <ToggleFilter
-                    icon={Star}
-                    label="Featured Only"
-                    active={!!filters.featured_only}
-                    onChange={v => onChange({ featured_only: v || undefined })}
-                    color="#22C55E"
-                />
+                <ToggleFilter icon={Trophy} label="Winning Projects" active={!!filters.winning_only} onChange={v => onChange({ winning_only: v || undefined })} />
+                <ToggleFilter icon={Star}   label="Featured Only"    active={!!filters.featured_only} onChange={v => onChange({ featured_only: v || undefined })} />
             </FilterSection>
 
-            {/* ── Category ──────────────────────────────────────────── */}
             {facets.categories.length > 0 && (
                 <FilterSection title="Category">
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         {facets.categories.map(cat => (
                             <button
                                 key={cat.id}
                                 type="button"
-                                onClick={() => onChange({
-                                    category_id: filters.category_id === cat.id ? undefined : cat.id,
-                                    category_name: undefined,
-                                })}
+                                onClick={() => onChange({ category_id: filters.category_id === cat.id ? undefined : cat.id, category_name: undefined })}
                                 className={cn(
-                                    'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all duration-150 cursor-pointer',
+                                    'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-all duration-150',
                                     filters.category_id === cat.id
-                                        ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30'
-                                        : 'text-[#475569] hover:text-[#F8FAFC] hover:bg-[#1E293B]',
+                                        ? 'border border-violet-500/30 bg-violet-500/10 text-violet-300'
+                                        : 'text-white/40 hover:bg-white/[0.04] hover:text-white/70',
                                 )}
                             >
                                 {cat.icon && <span>{cat.icon}</span>}
@@ -389,16 +405,12 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
                 </FilterSection>
             )}
 
-            {/* ── Competition ───────────────────────────────────────── */}
             {facets.competitions.length > 0 && (
                 <FilterSection title="Competition">
                     <select
                         value={filters.competition_id ?? ''}
-                        onChange={e => onChange({
-                            competition_id: e.target.value || undefined,
-                            competition_name: undefined,
-                        })}
-                        className="w-full bg-[#0F172A] border border-[#1E293B] rounded-lg px-3 py-2 text-xs text-[#F8FAFC] outline-none focus:border-[#22C55E]/50 cursor-pointer"
+                        onChange={e => onChange({ competition_id: e.target.value || undefined, competition_name: undefined })}
+                        className="w-full cursor-pointer rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs text-white outline-none transition-colors focus:border-violet-500/40"
                     >
                         <option value="">All competitions</option>
                         {facets.competitions.map(c => (
@@ -408,23 +420,19 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
                 </FilterSection>
             )}
 
-            {/* ── Technology chips ──────────────────────────────────── */}
             {facets.technologies.length > 0 && (
                 <FilterSection title="Technology">
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                    <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-0.5">
                         {facets.technologies.map(t => (
                             <button
                                 key={t.id}
                                 type="button"
-                                onClick={() => onChange({
-                                    technology_id: filters.technology_id === t.id ? undefined : t.id,
-                                    technology_name: undefined,
-                                })}
+                                onClick={() => onChange({ technology_id: filters.technology_id === t.id ? undefined : t.id, technology_name: undefined })}
                                 className={cn(
-                                    'px-2.5 py-1 rounded-full text-[10px] border transition-all duration-150 cursor-pointer',
+                                    'cursor-pointer rounded-full border px-2.5 py-1 text-[10px] transition-all duration-150',
                                     filters.technology_id === t.id
-                                        ? 'border-[#22C55E]/50 bg-[#22C55E]/15 text-[#22C55E]'
-                                        : 'border-[#1E293B] text-[#475569] hover:border-[#334155] hover:text-[#F8FAFC]',
+                                        ? 'border-violet-500/40 bg-violet-500/15 text-violet-300'
+                                        : 'border-white/[0.07] text-white/40 hover:border-white/[0.14] hover:text-white/70',
                                 )}
                                 style={filters.technology_id === t.id && t.color ? {
                                     borderColor: t.color + '50',
@@ -439,22 +447,18 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
                 </FilterSection>
             )}
 
-            {/* ── Award Rank ────────────────────────────────────────── */}
             <FilterSection title="Award Rank">
                 <div className="grid grid-cols-2 gap-1.5">
                     {AWARD_RANKS.map(r => (
                         <button
                             key={r.value}
                             type="button"
-                            onClick={() => onChange({
-                                award_rank: filters.award_rank === r.value ? undefined : r.value,
-                                winning_only: filters.award_rank === r.value ? undefined : true,
-                            })}
+                            onClick={() => onChange({ award_rank: filters.award_rank === r.value ? undefined : r.value, winning_only: filters.award_rank === r.value ? undefined : true })}
                             className={cn(
-                                'py-1.5 rounded-lg text-[10px] border transition-all duration-150 cursor-pointer text-center',
+                                'cursor-pointer rounded-lg border py-1.5 text-center text-[10px] transition-all duration-150',
                                 filters.award_rank === r.value
                                     ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
-                                    : 'border-[#1E293B] text-[#475569] hover:border-[#334155] hover:text-[#F8FAFC]',
+                                    : 'border-white/[0.07] text-white/40 hover:border-white/[0.14] hover:text-white/70',
                             )}
                         >
                             {r.label}
@@ -463,23 +467,19 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
                 </div>
             </FilterSection>
 
-            {/* ── Department ────────────────────────────────────────── */}
             {facets.departments.length > 0 && (
                 <FilterSection title="Department">
                     <select
                         value={filters.department ?? ''}
                         onChange={e => onChange({ department: e.target.value || undefined })}
-                        className="w-full bg-[#0F172A] border border-[#1E293B] rounded-lg px-3 py-2 text-xs text-[#F8FAFC] outline-none focus:border-[#22C55E]/50 cursor-pointer"
+                        className="w-full cursor-pointer rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs text-white outline-none transition-colors focus:border-violet-500/40"
                     >
                         <option value="">All departments</option>
-                        {facets.departments.map(d => (
-                            <option key={d} value={d}>{d}</option>
-                        ))}
+                        {facets.departments.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                 </FilterSection>
             )}
 
-            {/* ── Academic Year ─────────────────────────────────────── */}
             {facets.years.length > 0 && (
                 <FilterSection title="Academic Year">
                     <div className="flex flex-wrap gap-1.5">
@@ -487,14 +487,12 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
                             <button
                                 key={y}
                                 type="button"
-                                onClick={() => onChange({
-                                    academic_year: String(filters.academic_year) === String(y) ? undefined : String(y),
-                                })}
+                                onClick={() => onChange({ academic_year: String(filters.academic_year) === String(y) ? undefined : String(y) })}
                                 className={cn(
-                                    'px-2.5 py-1 rounded-lg text-[10px] border transition-all duration-150 cursor-pointer',
+                                    'cursor-pointer rounded-lg border px-2.5 py-1 text-[10px] transition-all duration-150',
                                     String(filters.academic_year) === String(y)
-                                        ? 'border-[#22C55E]/40 bg-[#22C55E]/10 text-[#22C55E]'
-                                        : 'border-[#1E293B] text-[#475569] hover:border-[#334155] hover:text-[#F8FAFC]',
+                                        ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
+                                        : 'border-white/[0.07] text-white/40 hover:border-white/[0.14] hover:text-white/70',
                                 )}
                             >
                                 {y}
@@ -507,79 +505,38 @@ function FilterPanel({ filters, facets, onChange, onClear }: FilterPanelProps) {
     );
 }
 
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">{title}</p>
-            {children}
-        </div>
-    );
-}
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
-function SearchInput({
-    icon: Icon, placeholder, value, onChange,
-}: {
-    icon: React.ElementType;
-    placeholder: string;
-    value: string;
-    onChange: (v: string) => void;
-}) {
+function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
     return (
-        <div className="relative">
-            <Icon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#475569] pointer-events-none" />
-            <input
-                type="text"
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                className="w-full bg-[#0F172A] border border-[#1E293B] rounded-lg pl-8 pr-3 py-2 text-xs text-[#F8FAFC] placeholder:text-[#475569] outline-none focus:border-[#22C55E]/50 transition-colors"
-            />
-            {value && (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center py-24 text-center"
+        >
+            <div className="glass mb-5 flex h-16 w-16 items-center justify-center">
+                <Search className="h-7 w-7 text-white/20" />
+            </div>
+            <h3 className="mb-1.5 text-base font-semibold text-white/80">No results found</h3>
+            <p className="mb-5 max-w-xs text-sm leading-relaxed text-white/40">
+                {hasFilters
+                    ? 'Try adjusting your filters or search terms.'
+                    : 'No projects are available right now.'}
+            </p>
+            {hasFilters && (
                 <button
                     type="button"
-                    onClick={() => onChange('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#F8FAFC] transition-colors cursor-pointer"
+                    onClick={onClear}
+                    className="btn-primary cursor-pointer"
                 >
-                    <X className="w-3 h-3" />
+                    Clear all filters
                 </button>
             )}
-        </div>
+        </motion.div>
     );
 }
 
-function ToggleFilter({
-    icon: Icon, label, active, onChange, color,
-}: {
-    icon: React.ElementType;
-    label: string;
-    active: boolean;
-    onChange: (v: boolean) => void;
-    color?: string;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={() => onChange(!active)}
-            className={cn(
-                'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all duration-150 border cursor-pointer',
-                active
-                    ? 'border-[#22C55E]/30 bg-[#22C55E]/10 text-[#22C55E]'
-                    : 'border-[#1E293B] text-[#475569] hover:text-[#F8FAFC] hover:bg-[#1E293B]',
-            )}
-        >
-            <Icon className="w-3.5 h-3.5 shrink-0" style={active && color ? { color } : undefined} />
-            {label}
-            <span className={cn(
-                'ml-auto w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
-                active ? 'bg-[#22C55E] border-[#22C55E]' : 'border-[#334155]',
-            )}>
-                {active && <span className="w-2 h-2 rounded-sm bg-black" />}
-            </span>
-        </button>
-    );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function SearchPage({ projects, filters: initialFilters, facets }: Props) {
     const [filters, setFilters] = useState<SearchFilters>(initialFilters);
@@ -587,7 +544,6 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
     const [navigating, setNavigating] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Debounced navigation on filter change
     const navigate = useCallback(
         debounce((f: SearchFilters) => {
             setNavigating(true);
@@ -617,79 +573,73 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
         router.get(url, {}, { onFinish: () => setNavigating(false) });
     }, [filters]);
 
-    // Active filter chips
+    // Active chips
     const activeChips: { key: string; label: string; remove: () => void }[] = [];
-
-    if (filters.search) activeChips.push({ key: 'search', label: `"${filters.search}"`, remove: () => onChange({ search: undefined }) });
-    if (filters.student_name) activeChips.push({ key: 'student_name', label: `Student: ${filters.student_name}`, remove: () => onChange({ student_name: undefined }) });
-    if (filters.supervisor) activeChips.push({ key: 'supervisor', label: `Supervisor: ${filters.supervisor}`, remove: () => onChange({ supervisor: undefined }) });
-    if (filters.technology_id) {
-        const t = facets.technologies.find(x => x.id === filters.technology_id);
-        if (t) activeChips.push({ key: 'tech', label: t.name, remove: () => onChange({ technology_id: undefined }) });
-    }
-    if (filters.technology_name) activeChips.push({ key: 'tech_name', label: `Tech: ${filters.technology_name}`, remove: () => onChange({ technology_name: undefined }) });
-    if (filters.competition_id) {
-        const c = facets.competitions.find(x => x.id === filters.competition_id);
-        if (c) activeChips.push({ key: 'comp', label: c.name, remove: () => onChange({ competition_id: undefined }) });
-    }
-    if (filters.competition_name) activeChips.push({ key: 'comp_name', label: `Competition: ${filters.competition_name}`, remove: () => onChange({ competition_name: undefined }) });
-    if (filters.category_id) {
-        const c = facets.categories.find(x => x.id === filters.category_id);
-        if (c) activeChips.push({ key: 'cat', label: c.name, remove: () => onChange({ category_id: undefined }) });
-    }
-    if (filters.award_name) activeChips.push({ key: 'award', label: `Award: ${filters.award_name}`, remove: () => onChange({ award_name: undefined }) });
-    if (filters.award_rank) activeChips.push({ key: 'award_rank', label: `Rank: ${filters.award_rank}`, remove: () => onChange({ award_rank: undefined }) });
-    if (filters.department) activeChips.push({ key: 'dept', label: `Dept: ${filters.department}`, remove: () => onChange({ department: undefined }) });
-    if (filters.academic_year) activeChips.push({ key: 'year', label: `Year: ${filters.academic_year}`, remove: () => onChange({ academic_year: undefined }) });
-    if (filters.winning_only) activeChips.push({ key: 'winning', label: 'Winning Projects', remove: () => onChange({ winning_only: undefined, award_rank: undefined }) });
-    if (filters.featured_only) activeChips.push({ key: 'featured', label: 'Featured', remove: () => onChange({ featured_only: undefined }) });
+    if (filters.search)           activeChips.push({ key: 'search',    label: `"${filters.search}"`,                remove: () => onChange({ search: undefined }) });
+    if (filters.student_name)     activeChips.push({ key: 'student',   label: `Student: ${filters.student_name}`,   remove: () => onChange({ student_name: undefined }) });
+    if (filters.supervisor)       activeChips.push({ key: 'super',     label: `Supervisor: ${filters.supervisor}`,  remove: () => onChange({ supervisor: undefined }) });
+    if (filters.technology_id)  { const t = facets.technologies.find(x => x.id === filters.technology_id); if (t) activeChips.push({ key: 'tech', label: t.name, remove: () => onChange({ technology_id: undefined }) }); }
+    if (filters.technology_name)  activeChips.push({ key: 'tech_n',   label: `Tech: ${filters.technology_name}`,   remove: () => onChange({ technology_name: undefined }) });
+    if (filters.competition_id) { const c = facets.competitions.find(x => x.id === filters.competition_id); if (c) activeChips.push({ key: 'comp', label: c.name, remove: () => onChange({ competition_id: undefined }) }); }
+    if (filters.competition_name) activeChips.push({ key: 'comp_n',   label: `Comp: ${filters.competition_name}`,  remove: () => onChange({ competition_name: undefined }) });
+    if (filters.category_id)    { const c = facets.categories.find(x => x.id === filters.category_id); if (c) activeChips.push({ key: 'cat', label: c.name, remove: () => onChange({ category_id: undefined }) }); }
+    if (filters.award_name)       activeChips.push({ key: 'award',    label: `Award: ${filters.award_name}`,        remove: () => onChange({ award_name: undefined }) });
+    if (filters.award_rank)       activeChips.push({ key: 'rank',     label: `Rank: ${filters.award_rank}`,         remove: () => onChange({ award_rank: undefined }) });
+    if (filters.department)       activeChips.push({ key: 'dept',     label: `Dept: ${filters.department}`,         remove: () => onChange({ department: undefined }) });
+    if (filters.academic_year)    activeChips.push({ key: 'year',     label: `Year: ${filters.academic_year}`,      remove: () => onChange({ academic_year: undefined }) });
+    if (filters.winning_only)     activeChips.push({ key: 'winning',  label: 'Winning Projects',                    remove: () => onChange({ winning_only: undefined, award_rank: undefined }) });
+    if (filters.featured_only)    activeChips.push({ key: 'featured', label: 'Featured',                            remove: () => onChange({ featured_only: undefined }) });
 
     const { data: results, ...meta } = projects;
 
     return (
         <AppLayout>
-            <Head title="Search Projects" />
+            <Head title="Search Projects — AiKFS" />
 
-            {/* Background glows */}
-            <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] rounded-full bg-[#22C55E]/[0.04] blur-[120px]" />
-                <div className="absolute bottom-[10%] right-[10%] w-[350px] h-[350px] rounded-full bg-blue-600/[0.04] blur-[100px]" />
-            </div>
+            {/* Ambient background */}
+            <AmbientBackground className="z-0" />
 
-            <div className="min-h-screen bg-[#020617] text-[#F8FAFC]">
-                <div className="max-w-screen-xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+            <div className="relative min-h-screen" style={{ background: '#080810' }}>
+                <div className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8">
 
-                    {/* ── Page Header ──────────────────────────────────── */}
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-[#F8FAFC] tracking-tight mb-1">
-                            Search Projects
+                    {/* ── Page header ─────────────────────────────────────── */}
+                    <Reveal className="mb-8">
+                        <div className="label-chip mb-4">
+                            <Search className="h-3 w-3" />
+                            Project Search
+                        </div>
+                        <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+                            Discover AI Projects
                         </h1>
-                        <p className="text-sm text-[#475569]">
-                            {meta.total.toLocaleString()} project{meta.total !== 1 ? 's' : ''} across the Faculty of AI showcase
+                        <p className="mt-2 text-sm text-white/40">
+                            <span className="tabular font-semibold text-white/70">{meta.total.toLocaleString()}</span>
+                            {' '}project{meta.total !== 1 ? 's' : ''} across the Faculty of AI showcase
                         </p>
-                    </div>
+                    </Reveal>
 
-                    {/* ── Main search bar ───────────────────────────────── */}
-                    <div className="relative mb-6">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#475569] pointer-events-none" />
-                        <input
-                            ref={searchInputRef}
-                            type="search"
-                            value={filters.search ?? ''}
-                            onChange={e => onChange({ search: e.target.value || undefined })}
-                            placeholder="Search projects, topics, technologies…"
-                            autoFocus
-                            className="w-full bg-[#0F172A] border border-[#1E293B] rounded-xl pl-12 pr-4 py-3.5 text-base text-[#F8FAFC] placeholder:text-[#475569] outline-none focus:border-[#22C55E]/50 transition-colors"
-                        />
-                        {navigating && (
-                            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#22C55E] animate-spin" />
-                        )}
-                    </div>
+                    {/* ── Main search bar ──────────────────────────────────── */}
+                    <Reveal className="mb-5">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/30" />
+                            <input
+                                ref={searchInputRef}
+                                type="search"
+                                value={filters.search ?? ''}
+                                onChange={e => onChange({ search: e.target.value || undefined })}
+                                placeholder="Search projects, topics, technologies…"
+                                autoFocus
+                                aria-label="Search projects"
+                                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3.5 pl-12 pr-12 text-[15px] text-white placeholder:text-white/25 outline-none backdrop-blur-sm transition-all focus:border-violet-500/45 focus:bg-white/[0.05] focus:ring-2 focus:ring-violet-500/15"
+                            />
+                            {navigating && (
+                                <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-violet-400" />
+                            )}
+                        </div>
+                    </Reveal>
 
-                    {/* ── Sort + mobile filter toggle ───────────────────── */}
-                    <div className="flex items-center justify-between gap-3 mb-5">
-                        {/* Sort tabs */}
-                        <div className="flex items-center gap-1 flex-wrap">
+                    {/* ── Sort tabs ────────────────────────────────────────── */}
+                    <div className="mb-5 flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
                             {SORT_OPTIONS.map(opt => {
                                 const Icon = opt.icon;
                                 const active = (filters.sort ?? 'published_at') === opt.value;
@@ -699,43 +649,42 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
                                         type="button"
                                         onClick={() => onChange({ sort: opt.value, direction: 'desc' })}
                                         className={cn(
-                                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 cursor-pointer',
+                                            'inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150',
                                             active
-                                                ? 'bg-[#22C55E]/15 border-[#22C55E]/30 text-[#22C55E]'
-                                                : 'border-[#1E293B] text-[#475569] hover:text-[#F8FAFC] hover:border-[#334155]',
+                                                ? 'border-violet-500/30 bg-violet-500/12 text-violet-300'
+                                                : 'border-white/[0.07] text-white/40 hover:border-white/[0.13] hover:text-white/70',
                                         )}
                                     >
-                                        <Icon className="w-3.5 h-3.5" />
+                                        <Icon className="h-3.5 w-3.5" />
                                         {opt.label}
                                     </button>
                                 );
                             })}
                         </div>
 
-                        {/* Mobile filter toggle */}
                         <button
                             type="button"
                             onClick={() => setSidebarOpen(v => !v)}
-                            className="lg:hidden inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1E293B] text-xs text-[#475569] hover:text-[#F8FAFC] hover:border-[#334155] transition-colors cursor-pointer"
+                            className="lg:hidden inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.07] px-3 py-1.5 text-xs text-white/40 transition-colors hover:border-white/[0.14] hover:text-white/70"
                         >
-                            <Filter className="w-3.5 h-3.5" />
+                            <Filter className="h-3.5 w-3.5" />
                             Filters
                             {activeChips.length > 0 && (
-                                <span className="w-4 h-4 rounded-full bg-[#22C55E] text-black text-[9px] font-bold flex items-center justify-center">
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">
                                     {activeChips.length}
                                 </span>
                             )}
                         </button>
                     </div>
 
-                    {/* ── Active filter chips ───────────────────────────── */}
+                    {/* ── Active chips ─────────────────────────────────────── */}
                     <AnimatePresence>
                         {activeChips.length > 0 && (
                             <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="flex flex-wrap gap-2 mb-5 overflow-hidden"
+                                className="mb-5 flex flex-wrap gap-2 overflow-hidden"
                             >
                                 {activeChips.map(chip => (
                                     <ActiveChip key={chip.key} label={chip.label} onRemove={chip.remove} />
@@ -743,7 +692,7 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
                                 <button
                                     type="button"
                                     onClick={onClear}
-                                    className="text-xs text-[#475569] hover:text-[#F8FAFC] transition-colors cursor-pointer underline underline-offset-2"
+                                    className="cursor-pointer text-xs text-white/30 underline underline-offset-2 transition-colors hover:text-white/60"
                                 >
                                     Clear all
                                 </button>
@@ -751,40 +700,33 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
                         )}
                     </AnimatePresence>
 
-                    {/* ── Layout ───────────────────────────────────────── */}
-                    <div className="flex gap-6 items-start">
+                    {/* ── Layout ───────────────────────────────────────────── */}
+                    <div className="flex items-start gap-6">
 
                         {/* Desktop sidebar */}
                         <div className="hidden lg:block sticky top-6">
                             <FilterPanel filters={filters} facets={facets} onChange={onChange} onClear={onClear} />
                         </div>
 
-                        {/* Mobile sidebar drawer */}
+                        {/* Mobile drawer */}
                         <AnimatePresence>
                             {sidebarOpen && (
                                 <>
                                     <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                         onClick={() => setSidebarOpen(false)}
                                         className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
                                     />
                                     <motion.div
-                                        initial={{ x: '-100%' }}
-                                        animate={{ x: 0 }}
-                                        exit={{ x: '-100%' }}
+                                        initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
                                         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                                        className="fixed inset-y-0 left-0 z-50 w-72 bg-[#0F172A] border-r border-[#1E293B] p-5 overflow-y-auto lg:hidden"
+                                        className="fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-white/[0.07] bg-[#0c0c14] p-5 lg:hidden"
                                     >
-                                        <div className="flex items-center justify-between mb-5">
-                                            <span className="text-sm font-semibold text-[#F8FAFC]">Filters</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setSidebarOpen(false)}
-                                                className="text-[#475569] hover:text-[#F8FAFC] transition-colors cursor-pointer"
-                                            >
-                                                <X className="w-5 h-5" />
+                                        <div className="mb-5 flex items-center justify-between">
+                                            <span className="text-sm font-semibold text-white/85">Filters</span>
+                                            <button type="button" onClick={() => setSidebarOpen(false)}
+                                                className="cursor-pointer text-white/35 transition-colors hover:text-white/70">
+                                                <X className="h-5 w-5" />
                                             </button>
                                         </div>
                                         <FilterPanel filters={filters} facets={facets} onChange={onChange} onClear={onClear} />
@@ -794,21 +736,22 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
                         </AnimatePresence>
 
                         {/* Results */}
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                             {results.length === 0 ? (
                                 <EmptyState hasFilters={activeChips.length > 0} onClear={onClear} />
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-                                        {results.map(project => (
-                                            <ProjectCard key={project.id} project={project} />
+                                    <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        {results.map((project, i) => (
+                                            <ProjectCard key={project.id} project={project} index={i} />
                                         ))}
                                     </div>
 
                                     <Pagination meta={meta} onPage={onPage} />
 
-                                    <p className="text-center text-xs text-[#475569] mt-4">
-                                        Showing {meta.from ?? 0}–{meta.to ?? 0} of {meta.total.toLocaleString()} results
+                                    <p className="mt-4 text-center text-xs text-white/25">
+                                        Showing <span className="tabular">{meta.from ?? 0}–{meta.to ?? 0}</span> of{' '}
+                                        <span className="tabular">{meta.total.toLocaleString()}</span> results
                                     </p>
                                 </>
                             )}
@@ -817,34 +760,5 @@ export default function SearchPage({ projects, filters: initialFilters, facets }
                 </div>
             </div>
         </AppLayout>
-    );
-}
-
-function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24 text-center"
-        >
-            <div className="w-16 h-16 rounded-2xl bg-[#0F172A] border border-[#1E293B] flex items-center justify-center mb-4">
-                <Search className="w-7 h-7 text-[#1E293B]" />
-            </div>
-            <h3 className="text-base font-semibold text-[#F8FAFC] mb-1">No results found</h3>
-            <p className="text-sm text-[#475569] max-w-xs">
-                {hasFilters
-                    ? 'Try adjusting your filters or search terms.'
-                    : 'No projects are available right now.'}
-            </p>
-            {hasFilters && (
-                <button
-                    type="button"
-                    onClick={onClear}
-                    className="mt-4 px-4 py-2 rounded-lg bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#22C55E] text-sm font-medium hover:bg-[#22C55E]/25 transition-colors cursor-pointer"
-                >
-                    Clear all filters
-                </button>
-            )}
-        </motion.div>
     );
 }

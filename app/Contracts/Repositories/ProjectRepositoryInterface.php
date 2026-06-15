@@ -25,6 +25,8 @@ interface ProjectRepositoryInterface
     /** Typeahead suggestions — returns [{type, label, slug}]. */
     public function suggest(string $query, int $limit = 8): array;
 
+    public function slugExists(string $slug, ?string $excludeId = null): bool;
+
     public function create(array $data): Project;
 
     public function update(Project $project, array $data): Project;

@@ -11,7 +11,10 @@ use App\Http\Requests\Project\RequestRevisionRequest;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Http\Requests\Project\UpdateProjectRequest;
 use App\Http\Resources\ProjectResource;
+use App\Jobs\TrackProjectView;
 use App\Models\Project;
+use App\Services\Security\AuditLogService;
+use App\Services\SeoMetaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,18 +22,24 @@ use Inertia\Response;
 
 class ProjectController extends Controller
 {
-    public function __construct(protected ProjectServiceInterface $projectService) {}
+    public function __construct(
+        protected ProjectServiceInterface $projectService,
+        protected SeoMetaService $seo,
+        protected AuditLogService $audit,
+    ) {}
 
     // ─── Public ───────────────────────────────────────────────────────
 
     public function index(Request $request): Response
     {
-        $filter = ProjectFilterDTO::fromRequest($request->all());
+        $filter   = ProjectFilterDTO::fromRequest($request->all());
         $projects = $this->projectService->getPublicProjects($filter);
+        $canReview = $request->user()?->can('review', Project::class) ?? false;
 
         return Inertia::render('Projects/Index', [
-            'projects' => ProjectResource::collection($projects),
+            'projects' => ProjectResource::collection($projects)->additional(['can_review' => $canReview]),
             'filters'  => $request->only(['search', 'category_id', 'academic_year', 'department', 'sort', 'direction']),
+            'seo'      => $this->seo->forProjectsIndex($request->input('category_name')),
         ]);
     }
 
@@ -40,17 +49,22 @@ class ProjectController extends Controller
 
         $this->authorize('view', $project);
 
-        $this->projectService->incrementViews($project, [
-            'user_id'  => $request->user()?->id,
-            'ip_hash'  => hash('sha256', $request->ip()),
-            'referrer' => $this->normaliseReferrer($request->headers->get('referer')),
-            'country'  => $request->headers->get('CF-IPCountry')  // Cloudflare header; null otherwise
-                       ?? $request->headers->get('X-Country-Code'),
-            'browser'  => $this->parseBrowser($request->userAgent() ?? ''),
-        ]);
+        // Dispatch view tracking asynchronously — keeps p99 latency off the request path
+        TrackProjectView::dispatch(
+            $project->id,
+            $request->user()?->id,
+            hash('sha256', $request->ip()),
+            $this->normaliseReferrer($request->headers->get('referer')),
+            $request->headers->get('CF-IPCountry') ?? $request->headers->get('X-Country-Code'),
+            $this->parseBrowser($request->userAgent() ?? ''),
+        );
+
+        // Eager-load relations needed for rich schema
+        $project->loadMissing(['owner', 'category', 'technologies', 'awards']);
 
         return Inertia::render('Projects/Show', [
             'project' => new ProjectResource($project),
+            'seo'     => $this->seo->forProject($project),
         ]);
     }
 
@@ -174,7 +188,11 @@ class ProjectController extends Controller
 
     public function approve(ApproveProjectRequest $request, Project $project): RedirectResponse
     {
+        $this->authorize('approve', $project);
+        $oldStatus = $project->status->value;
+
         $this->projectService->approve($project, $request->user());
+        $this->audit->projectStatusChanged($project, $oldStatus, 'approved');
 
         return redirect()
             ->route('admin.projects.pending')
@@ -183,7 +201,11 @@ class ProjectController extends Controller
 
     public function reject(RejectProjectRequest $request, Project $project): RedirectResponse
     {
+        $this->authorize('reject', $project);
+        $oldStatus = $project->status->value;
+
         $this->projectService->reject($project, $request->user(), $request->validated('rejection_notes'));
+        $this->audit->projectStatusChanged($project, $oldStatus, 'rejected');
 
         return redirect()
             ->route('admin.projects.pending')
@@ -192,7 +214,11 @@ class ProjectController extends Controller
 
     public function requestRevision(RequestRevisionRequest $request, Project $project): RedirectResponse
     {
+        $this->authorize('requestRevision', $project);
+        $oldStatus = $project->status->value;
+
         $this->projectService->requestRevision($project, $request->user(), $request->validated('revision_notes'));
+        $this->audit->projectStatusChanged($project, $oldStatus, 'revision');
 
         return redirect()
             ->route('admin.projects.pending')
@@ -202,8 +228,10 @@ class ProjectController extends Controller
     public function publish(Project $project): RedirectResponse
     {
         $this->authorize('publish', $project);
+        $oldStatus = $project->status->value;
 
         $this->projectService->publish($project);
+        $this->audit->projectStatusChanged($project, $oldStatus, 'published');
 
         return redirect()
             ->back()
@@ -213,8 +241,10 @@ class ProjectController extends Controller
     public function archive(Project $project): RedirectResponse
     {
         $this->authorize('archive', $project);
+        $oldStatus = $project->status->value;
 
         $this->projectService->archive($project);
+        $this->audit->projectStatusChanged($project, $oldStatus, 'archived');
 
         return redirect()
             ->back()

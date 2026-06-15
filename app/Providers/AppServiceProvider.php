@@ -3,18 +3,29 @@
 namespace App\Providers;
 
 use App\Contracts\Services\CacheServiceInterface;
+use App\Observers\NotificationObserver;
+use Illuminate\Notifications\DatabaseNotification;
 use App\Enums\Permission;
 use App\Models\Category;
 use App\Models\Competition;
 use App\Models\Project;
+use App\Models\ProjectAward;
+use App\Models\RepositoryUpload;
+use App\Models\Technology;
 use App\Models\User;
+use App\Policies\AwardPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\CompetitionPolicy;
 use App\Policies\ProjectPolicy;
-use App\Policies\SettingsPolicy;
+use App\Policies\RepositoryPolicy;
+use App\Policies\TechnologyPolicy;
 use App\Policies\UserPolicy;
 use App\Services\Ai\AiService;
 use App\Services\Cache\CacheService;
+use App\Services\Cache\ProjectCacheService;
+use App\Services\Security\AuditLogService;
+use App\Services\Security\FileUploadSecurityService;
+use App\Services\Security\ZipSecurityScanner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
@@ -27,11 +38,16 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(CacheServiceInterface::class, CacheService::class);
+        $this->app->singleton(ProjectCacheService::class);
         $this->app->singleton(AiService::class);
+        $this->app->singleton(AuditLogService::class);
+        $this->app->singleton(FileUploadSecurityService::class);
+        $this->app->singleton(ZipSecurityScanner::class);
     }
 
     public function boot(): void
     {
+        DatabaseNotification::observe(NotificationObserver::class);
         $this->configureMassAssignment();
         $this->configurePasswordValidation();
         $this->configureJsonResources();
@@ -77,10 +93,13 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerPolicies(): void
     {
-        Gate::policy(Project::class,     ProjectPolicy::class);
-        Gate::policy(Category::class,    CategoryPolicy::class);
-        Gate::policy(Competition::class, CompetitionPolicy::class);
-        Gate::policy(User::class,        UserPolicy::class);
+        Gate::policy(Project::class,         ProjectPolicy::class);
+        Gate::policy(Category::class,        CategoryPolicy::class);
+        Gate::policy(Competition::class,     CompetitionPolicy::class);
+        Gate::policy(User::class,            UserPolicy::class);
+        Gate::policy(ProjectAward::class,    AwardPolicy::class);
+        Gate::policy(RepositoryUpload::class, RepositoryPolicy::class);
+        Gate::policy(Technology::class,      TechnologyPolicy::class);
     }
 
     private function registerNamedGates(): void

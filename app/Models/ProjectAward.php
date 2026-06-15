@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProjectAward extends Model
 {
-    use HasUuids;
+    use HasUuids, HasTranslations;
 
     protected $fillable = [
         'project_id', 'competition_id', 'title', 'title_ar',

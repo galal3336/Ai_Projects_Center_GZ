@@ -18,4 +18,7 @@ export default defineConfig({
             '@': path.resolve(__dirname, 'resources/js'),
         },
     },
+    build: {
+        chunkSizeWarningLimit: 1000,
+    },
 });

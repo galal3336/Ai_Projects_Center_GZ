@@ -15,7 +15,9 @@ use App\Events\Project\ProjectRevisionRequested;
 use App\Events\Project\ProjectSubmitted;
 use App\Models\Project;
 use App\Models\User;
+use App\Jobs\WarmProjectCache;
 use App\Services\Activity\ActivityService;
+use App\Services\Cache\ProjectCacheService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -26,11 +28,12 @@ class ProjectService implements ProjectServiceInterface
     public function __construct(
         protected ProjectRepositoryInterface $projectRepository,
         protected ActivityService $activityService,
+        protected ProjectCacheService $cache,
     ) {}
 
     public function getPublicProjects(ProjectFilterDTO $filter): LengthAwarePaginator
     {
-        return $this->projectRepository->paginate($filter);
+        return $this->cache->rememberList($filter, fn () => $this->projectRepository->paginate($filter));
     }
 
     public function getAdminProjects(ProjectFilterDTO $filter): LengthAwarePaginator
@@ -51,8 +54,10 @@ class ProjectService implements ProjectServiceInterface
 
     public function getBySlug(string $slug): Project
     {
-        return $this->projectRepository->findBySlug($slug)
-            ?? throw new \Illuminate\Database\Eloquent\ModelNotFoundException("Project [{$slug}] not found.");
+        return $this->cache->rememberShow($slug, function () use ($slug) {
+            return $this->projectRepository->findBySlug($slug)
+                ?? throw new \Illuminate\Database\Eloquent\ModelNotFoundException("Project [{$slug}] not found.");
+        });
     }
 
     public function create(User $owner, ProjectDTO $dto): Project
@@ -79,6 +84,7 @@ class ProjectService implements ProjectServiceInterface
             }
 
             $this->activityService->log('created', 'Project created', $project, $owner);
+            $this->cache->invalidateAllProjects();
 
             return $project;
         });
@@ -111,6 +117,7 @@ class ProjectService implements ProjectServiceInterface
             }
 
             $this->activityService->log('updated', 'Project updated', $updated);
+            $this->cache->invalidateProject($updated->slug);
 
             return $updated;
         });
@@ -118,8 +125,11 @@ class ProjectService implements ProjectServiceInterface
 
     public function delete(Project $project): void
     {
+        $slug = $project->slug;
         $this->projectRepository->delete($project);
         $this->activityService->log('deleted', 'Project deleted', $project);
+        $this->cache->invalidateProject($slug);
+        $this->cache->invalidateHof();
     }
 
     // ─── Workflow transitions ──────────────────────────────────────────
@@ -188,6 +198,10 @@ class ProjectService implements ProjectServiceInterface
         $this->activityService->log('published', 'Project published', $updated);
 
         ProjectPublished::dispatch($updated);
+        $this->cache->invalidateProject($updated->slug);
+        $this->cache->invalidateHof();
+        $this->cache->invalidateFeatured();
+        WarmProjectCache::dispatch()->onQueue('cache');
 
         return $updated;
     }
@@ -221,6 +235,8 @@ class ProjectService implements ProjectServiceInterface
         $this->activityService->log('archived', 'Project archived', $updated);
 
         ProjectArchived::dispatch($updated);
+        $this->cache->invalidateProject($updated->slug);
+        $this->cache->invalidateHof();
 
         return $updated;
     }
@@ -251,9 +267,10 @@ class ProjectService implements ProjectServiceInterface
     {
         $base = Str::slug($title);
         $slug = $base;
-        $i = 1;
+        $i    = 1;
 
-        while (Project::where('slug', $slug)->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))->exists()) {
+        // sharedLock() inside the caller's transaction prevents concurrent duplicates.
+        while ($this->projectRepository->slugExists($slug, $excludeId)) {
             $slug = "{$base}-{$i}";
             $i++;
         }

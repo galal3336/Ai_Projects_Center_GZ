@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
     Eye, Users, Link2, Globe, Monitor,
-    Chrome, ArrowLeft, TrendingUp,
+    ArrowLeft, TrendingUp,
 } from 'lucide-react';
 import AppLayout from '@/layouts/AppLayout';
 import StatCard from '@/components/admin/StatCard';
@@ -371,7 +371,7 @@ export default function ProjectAnalytics({
                                         <div key={b.browser} className="space-y-1.5">
                                             <div className="flex items-center justify-between text-xs">
                                                 <div className="flex items-center gap-2 text-[#94A3B8]">
-                                                    <Chrome className="w-3.5 h-3.5 text-[#475569]" />
+                                                    <Globe className="w-3.5 h-3.5 text-[#475569]" />
                                                     {b.browser}
                                                 </div>
                                                 <span className="tabular-nums font-semibold text-[#CBD5E1]">

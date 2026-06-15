@@ -35,7 +35,6 @@ return new class extends Migration
 
         // Pivot: which technologies does a project use
         Schema::create('project_technologies', function (Blueprint $table) {
-            $table->uuid('id')->primary();
             $table->uuid('project_id');
             $table->uuid('technology_id');
 
@@ -46,7 +45,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
 
-            $table->unique(['project_id', 'technology_id']);
+            $table->primary(['project_id', 'technology_id']);
             $table->index(['technology_id', 'project_id']); // reverse lookup for tech browse page
         });
     }

@@ -37,8 +37,8 @@ class StarController extends Controller
         $starred = $request->user()
             ->starredProjects()
             ->with('project:id,title,slug,thumbnail,stars_count,views_count,status,published_at')
-            ->latest('created_at')
-            ->paginate(20);
+            ->latest('project_stars.created_at')
+            ->cursorPaginate(20);
 
         return response()->json($starred);
     }

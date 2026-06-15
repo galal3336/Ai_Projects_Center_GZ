@@ -5,4 +5,5 @@ return [
     App\Providers\EventServiceProvider::class,
     App\Providers\FortifyServiceProvider::class,
     App\Providers\RepositoryServiceProvider::class,
+    Tighten\Ziggy\ZiggyServiceProvider::class,
 ];

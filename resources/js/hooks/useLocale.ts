@@ -1,4 +1,4 @@
-import { usePage, router } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import type { SharedProps, Locale } from '@/types';
 
 export function useLocale() {
@@ -7,10 +7,12 @@ export function useLocale() {
     const isRtl = locale === 'ar';
 
     const switchLocale = (newLocale: Locale) => {
-        router.get(route('locale.switch', { locale: newLocale }), {}, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+        const csrf = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) ?? [])[1] ?? '');
+        const form = Object.assign(document.createElement('form'), { method: 'POST', action: route('locale.switch', { locale: newLocale }) });
+        const token = Object.assign(document.createElement('input'), { type: 'hidden', name: '_token', value: csrf });
+        form.appendChild(token);
+        document.body.appendChild(form);
+        form.submit();
     };
 
     return { locale, isRtl, switchLocale };

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\TechnologyResource;
 use App\Models\Technology;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,6 +38,7 @@ class TechnologyController extends Controller
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['name']);
 
         Technology::create($data);
+        Cache::tags(['search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('technologies.created'));
     }
@@ -55,6 +57,7 @@ class TechnologyController extends Controller
         ]);
 
         $technology->update($data);
+        Cache::tags(['search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('technologies.updated'));
     }
@@ -64,6 +67,7 @@ class TechnologyController extends Controller
         $this->authorize('manage', Technology::class);
 
         $technology->delete();
+        Cache::tags(['search', 'facets'])->flush();
 
         return redirect()->back()->with('success', __('technologies.deleted'));
     }

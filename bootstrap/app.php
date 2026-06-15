@@ -9,9 +9,15 @@ return Application::configure(basePath: dirname(__DIR__))
         web:      __DIR__.'/../routes/web.php',
         api:      __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health:   '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Security headers on every response
+        $middleware->web(prepend: [
+            \App\Http\Middleware\SecurityHeadersMiddleware::class,
+        ]);
+
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\SetLocale::class,
@@ -19,9 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'role'       => \App\Http\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role'               => \App\Http\Middleware\RoleMiddleware::class,
+            'permission'         => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'throttle.custom'    => \App\Http\Middleware\RateLimitMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -31,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $_e, $request) {
             if ($request->header('X-Inertia')) {
                 return \Inertia\Inertia::render('Errors/404')->toResponse($request)->setStatusCode(404);
             }

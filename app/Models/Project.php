@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ProjectStatus;
 use App\Enums\ProjectVisibility;
+use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Project extends Model implements HasMedia
 {
-    use HasUuids, SoftDeletes, LogsActivity, InteractsWithMedia;
+    use HasUuids, SoftDeletes, LogsActivity, InteractsWithMedia, HasTranslations;
 
     protected $fillable = [
         'owner_id', 'category_id', 'competition_id',
@@ -28,7 +29,7 @@ class Project extends Model implements HasMedia
         'supervisor_name', 'supervisor_email', 'course_name',
         'status', 'visibility', 'is_featured',
         'allow_comments', 'allow_downloads',
-        'reviewed_by', 'reviewed_at', 'review_notes',
+        'reviewed_by', 'reviewed_at', 'rejection_notes',
         'published_at', 'submitted_at',
         'views_count', 'downloads_count', 'likes_count',
         'stars_count', 'bookmarks_count', 'followers_count',
@@ -38,6 +39,8 @@ class Project extends Model implements HasMedia
         'seo_title', 'seo_description', 'seo_keywords',
         'tags', 'meta',
     ];
+
+    protected $hidden = ['supervisor_email'];
 
     protected $casts = [
         'status'          => ProjectStatus::class,
@@ -171,32 +174,32 @@ class Project extends Model implements HasMedia
 
     // ─── Scopes ───────────────────────────────────────────────────────
 
-    public function scopePublished($query)
+    public function scopePublished(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('status', ProjectStatus::Published->value);
     }
 
-    public function scopePublic($query)
+    public function scopePublic(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('visibility', ProjectVisibility::Public->value);
     }
 
-    public function scopeFeatured($query)
+    public function scopeFeatured(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('is_featured', true);
     }
 
-    public function scopeForOwner($query, int $userId)
+    public function scopeForOwner(\Illuminate\Database\Eloquent\Builder $query, int $userId): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('owner_id', $userId);
     }
 
-    public function scopeInCategory($query, string $categoryId)
+    public function scopeInCategory(\Illuminate\Database\Eloquent\Builder $query, string $categoryId): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('category_id', $categoryId);
     }
 
-    public function scopePendingReview($query)
+    public function scopePendingReview(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereIn('status', ProjectStatus::reviewable());
     }
@@ -210,32 +213,55 @@ class Project extends Model implements HasMedia
 
     public function isMember(User $user): bool
     {
+        if ($this->relationLoaded('members')) {
+            return $this->members->contains('user_id', $user->id);
+        }
+
         return $this->members()->where('user_id', $user->id)->exists();
     }
 
     public function isStarredBy(User $user): bool
     {
+        if ($this->relationLoaded('stars')) {
+            return $this->stars->contains('user_id', $user->id);
+        }
+
         return $this->stars()->where('user_id', $user->id)->exists();
     }
 
     public function isBookmarkedBy(User $user): bool
     {
+        if ($this->relationLoaded('bookmarks')) {
+            return $this->bookmarks->contains('user_id', $user->id);
+        }
+
         return $this->bookmarks()->where('user_id', $user->id)->exists();
     }
 
     public function isFollowedBy(User $user): bool
     {
+        if ($this->relationLoaded('followers')) {
+            return $this->followers->contains('user_id', $user->id);
+        }
+
         return $this->followers()->where('user_id', $user->id)->exists();
     }
 
-    public function incrementViews(?int $userId = null, ?string $ipHash = null): void
+    // ─── Scopes ───────────────────────────────────────────────────────
+
+    /**
+     * Eager-load the minimal user-interaction pivot rows for the authenticated
+     * user so that isStarredBy / isBookmarkedBy / isFollowedBy never hit the DB
+     * on a list page (prevents N+1 on 20-item pages → 60 extra queries).
+     */
+    public function scopeWithUserInteractions(\Illuminate\Database\Eloquent\Builder $query, int $userId): \Illuminate\Database\Eloquent\Builder
     {
-        $this->views()->create([
-            'user_id'   => $userId,
-            'ip_hash'   => $ipHash,
-            'viewed_at' => now(),
-        ]);
-        $this->increment('views_count');
+        return $query
+            ->with([
+                'stars'     => fn ($q) => $q->where('user_id', $userId)->select(['project_id', 'user_id']),
+                'bookmarks' => fn ($q) => $q->where('user_id', $userId)->select(['project_id', 'user_id']),
+                'followers' => fn ($q) => $q->where('user_id', $userId)->select(['project_id', 'user_id']),
+            ]);
     }
 
     // ─── Media ────────────────────────────────────────────────────────
@@ -245,6 +271,44 @@ class Project extends Model implements HasMedia
         $this->addMediaCollection('thumbnail')->singleFile();
         $this->addMediaCollection('gallery');
         $this->addMediaCollection('files');
+    }
+
+    public function registerMediaConversions(?\Spatie\MediaLibrary\MediaCollections\Models\Media $media = null): void
+    {
+        // Thumbnail: card (400×300 WebP), hero (1200×630 WebP)
+        $this->addMediaConversion('card')
+            ->width(400)
+            ->height(300)
+            ->format('webp')
+            ->quality(80)
+            ->withResponsiveImages()
+            ->performOnCollections('thumbnail', 'gallery')
+            ->nonQueued();
+
+        $this->addMediaConversion('hero')
+            ->width(1200)
+            ->height(630)
+            ->format('webp')
+            ->quality(85)
+            ->performOnCollections('thumbnail')
+            ->queued();
+
+        // Gallery: medium preview (800px wide WebP)
+        $this->addMediaConversion('preview')
+            ->width(800)
+            ->format('webp')
+            ->quality(80)
+            ->performOnCollections('gallery')
+            ->queued();
+
+        // Tiny placeholder for blur-up lazy loading (32px wide WebP)
+        $this->addMediaConversion('placeholder')
+            ->width(32)
+            ->format('webp')
+            ->quality(40)
+            ->blur(5)
+            ->performOnCollections('thumbnail', 'gallery')
+            ->nonQueued();
     }
 
     // ─── ActivityLog ──────────────────────────────────────────────────

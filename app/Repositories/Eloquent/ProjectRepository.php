@@ -5,12 +5,10 @@ namespace App\Repositories\Eloquent;
 use App\Contracts\Repositories\ProjectRepositoryInterface;
 use App\DTOs\ProjectFilterDTO;
 use App\Enums\ProjectStatus;
-use App\Enums\ProjectVisibility;
 use App\Models\Project;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ProjectRepository implements ProjectRepositoryInterface
 {
@@ -27,8 +25,16 @@ class ProjectRepository implements ProjectRepositoryInterface
     public function findBySlug(string $slug): ?Project
     {
         return $this->model->with([
-            'owner', 'category', 'technologies', 'languages',
-            'members.user', 'awards', 'links', 'latestVersion', 'images',
+            'owner:id,name,username,avatar',
+            'category:id,name,name_ar,slug,color,icon',
+            'technologies:id,name,icon_url,color,website_url',
+            'languages:id,name,name_ar,code,flag_emoji',
+            'members:id,project_id,user_id,name,role,contribution,contribution_ar,sort_order',
+            'members.user:id,name,username,avatar',
+            'awards:id,project_id,competition_id,title,title_ar,issuer,rank,awarded_at,academic_year,is_verified',
+            'links:id,project_id,type,url,label,sort_order',
+            'latestVersion:id,project_id,version_tag,changelog,changelog_ar,released_at',
+            'images:id,project_id,path,disk,alt_text,alt_text_ar,caption,caption_ar,sort_order,is_cover,width,height',
         ])->where('slug', $slug)->first();
     }
 
@@ -187,6 +193,15 @@ class ProjectRepository implements ProjectRepositoryInterface
 
     // ─── CRUD ─────────────────────────────────────────────────────────
 
+    public function slugExists(string $slug, ?string $excludeId = null): bool
+    {
+        return $this->model
+            ->where('slug', $slug)
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+            ->sharedLock()
+            ->exists();
+    }
+
     public function create(array $data): Project
     {
         return $this->model->create($data);
@@ -285,8 +300,21 @@ class ProjectRepository implements ProjectRepositoryInterface
 
     private function buildPublicQuery(ProjectFilterDTO $filter): Builder
     {
+        // Select only columns needed for list cards — avoids pulling description/longText on 20 rows
         $query = $this->model
-            ->with(['owner', 'category', 'technologies'])
+            ->select([
+                'id', 'slug', 'title', 'title_ar', 'abstract', 'abstract_ar',
+                'thumbnail', 'department', 'academic_year', 'status', 'visibility',
+                'is_featured', 'category_id', 'owner_id',
+                'views_count', 'stars_count', 'bookmarks_count', 'followers_count',
+                'downloads_count', 'likes_count', 'average_rating', 'trending_score',
+                'tags', 'published_at', 'submitted_at', 'created_at', 'updated_at',
+            ])
+            ->with([
+                'owner:id,name,username,avatar',
+                'category:id,name,name_ar,slug,color,icon',
+                'technologies:id,name,icon_url,color',
+            ])
             ->published()
             ->public();
 

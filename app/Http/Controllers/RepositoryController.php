@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\RepositoryUpload;
 use App\Services\Repository\CodeAnalyticsService;
 use App\Services\Repository\RepositoryService;
+use App\Services\Security\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,12 +16,15 @@ class RepositoryController extends Controller
     public function __construct(
         private readonly RepositoryService $service,
         private readonly CodeAnalyticsService $analyticsService,
+        private readonly AuditLogService $audit,
     ) {}
 
     // ─── Pages ────────────────────────────────────────────────────────
 
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', RepositoryUpload::class);
+
         $uploads = RepositoryUpload::where('user_id', $request->user()->id)
             ->latest()
             ->get()
@@ -42,7 +46,7 @@ class RepositoryController extends Controller
 
     public function show(Request $request, RepositoryUpload $repository): Response
     {
-        $this->authorizeUpload($request, $repository);
+        $this->authorize('view', $repository);
         $repository->load('analytics');
 
         return Inertia::render('Repository/Explorer', [
@@ -52,7 +56,7 @@ class RepositoryController extends Controller
 
     public function analytics(Request $request, RepositoryUpload $repository): JsonResponse
     {
-        $this->authorizeUpload($request, $repository);
+        $this->authorize('view', $repository);
 
         $analytic = $repository->analytics;
 
@@ -88,6 +92,8 @@ class RepositoryController extends Controller
 
     public function upload(Request $request): JsonResponse
     {
+        $this->authorize('create', RepositoryUpload::class);
+
         $request->validate([
             'zip'  => ['required', 'file', 'mimes:zip', 'max:102400'],
             'name' => ['required', 'string', 'max:120'],
@@ -100,11 +106,13 @@ class RepositoryController extends Controller
                 $request->input('name')
             );
 
+            $this->audit->fileUploaded('repository_zip', $request->file('zip')->getClientOriginalName(), $upload->id);
+
             return response()->json([
                 'id'      => $upload->id,
                 'status'  => $upload->status->value,
-                'message' => $upload->isReady() ? 'Repository processed successfully.' : 'Processing failed.',
-            ], $upload->isReady() ? 201 : 422);
+                'message' => 'Upload received. Processing in background.',
+            ], 202);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -112,7 +120,7 @@ class RepositoryController extends Controller
 
     public function fileContent(Request $request, RepositoryUpload $repository): JsonResponse
     {
-        $this->authorizeUpload($request, $repository);
+        $this->authorize('view', $repository);
 
         $request->validate([
             'path' => ['required', 'string', 'max:500'],
@@ -131,7 +139,7 @@ class RepositoryController extends Controller
 
     public function search(Request $request, RepositoryUpload $repository): JsonResponse
     {
-        $this->authorizeUpload($request, $repository);
+        $this->authorize('view', $repository);
 
         $request->validate([
             'q' => ['required', 'string', 'min:1', 'max:120'],
@@ -147,8 +155,9 @@ class RepositoryController extends Controller
 
     public function destroy(Request $request, RepositoryUpload $repository): JsonResponse
     {
-        $this->authorizeUpload($request, $repository);
+        $this->authorize('delete', $repository);
 
+        $this->audit->adminAction('repository_deleted', $repository);
         $this->service->deleteUpload($repository);
 
         return response()->json(['message' => 'Deleted.']);
@@ -191,10 +200,5 @@ class RepositoryController extends Controller
         ];
     }
 
-    private function authorizeUpload(Request $request, RepositoryUpload $repository): void
-    {
-        if ($repository->user_id !== $request->user()->id) {
-            abort(403);
-        }
-    }
+
 }

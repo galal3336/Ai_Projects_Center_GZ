@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Category extends Model
 {
-    use HasUuids, SoftDeletes, LogsActivity;
+    use HasUuids, SoftDeletes, LogsActivity, HasTranslations;
 
     protected $fillable = [
         'parent_id', 'name', 'name_ar', 'slug',

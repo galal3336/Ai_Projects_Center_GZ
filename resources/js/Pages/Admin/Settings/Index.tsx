@@ -3,9 +3,9 @@ import { usePage } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AlertCircle, Bell, Check, ChevronRight, Database, ExternalLink,
-    Facebook, Globe, Image, Instagram, Linkedin, Link2, Loader2,
+    Globe, Image, Link2, Loader2,
     Lock, Mail, MapPin, Monitor, Phone, RefreshCw, Save, Search,
-    Settings, Shield, Tag, Twitter, Upload, X, Youtube, Zap,
+    Settings, Shield, Tag, Upload, X, Youtube, Zap,
     Palette, FileCode, Building2, Hash,
 } from 'lucide-react';
 import AdminLayout from '@/layouts/AdminLayout';
@@ -478,12 +478,12 @@ function ContactTab({ data, onChange }: { data: ContactSettings; onChange: (d: C
 }
 
 const SOCIAL_FIELDS: { key: keyof SocialSettings; label: string; icon: React.ElementType; placeholder: string }[] = [
-    { key: 'social_twitter',   label: 'Twitter / X',  icon: Twitter,   placeholder: 'https://twitter.com/aikfs_kfu' },
-    { key: 'social_linkedin',  label: 'LinkedIn',     icon: Linkedin,  placeholder: 'https://linkedin.com/company/kfu' },
-    { key: 'social_github',    label: 'GitHub',       icon: Hash,      placeholder: 'https://github.com/kfu-ai' },
-    { key: 'social_instagram', label: 'Instagram',    icon: Instagram, placeholder: 'https://instagram.com/aikfs' },
-    { key: 'social_youtube',   label: 'YouTube',      icon: Youtube,   placeholder: 'https://youtube.com/@kfu' },
-    { key: 'social_facebook',  label: 'Facebook',     icon: Facebook,  placeholder: 'https://facebook.com/kfu' },
+    { key: 'social_twitter',   label: 'Twitter / X',  icon: X,     placeholder: 'https://twitter.com/aikfs_kfu' },
+    { key: 'social_linkedin',  label: 'LinkedIn',     icon: Link2, placeholder: 'https://linkedin.com/company/kfu' },
+    { key: 'social_github',    label: 'GitHub',       icon: Hash,  placeholder: 'https://github.com/kfu-ai' },
+    { key: 'social_instagram', label: 'Instagram',    icon: Link2, placeholder: 'https://instagram.com/aikfs' },
+    { key: 'social_youtube',   label: 'YouTube',      icon: Link2, placeholder: 'https://youtube.com/@kfu' },
+    { key: 'social_facebook',  label: 'Facebook',     icon: Link2, placeholder: 'https://facebook.com/kfu' },
 ];
 
 function SocialTab({ data, onChange }: { data: SocialSettings; onChange: (d: SocialSettings) => void }) {

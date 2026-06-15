@@ -165,6 +165,59 @@ export interface SearchFilters {
     direction?: string;
 }
 
+// ─── Credits Domain ───────────────────────────────────────────────────────────
+
+export type CreditsCategory =
+    | 'development_team'
+    | 'faculty_supervisors'
+    | 'contributors'
+    | 'sponsors';
+
+export type CreditsType =
+    | 'developer'
+    | 'designer'
+    | 'supervisor'
+    | 'advisor'
+    | 'contributor'
+    | 'alumni';
+
+export interface CreditsMember {
+    id: string;
+    user_id:           number | null;
+    name:              string;
+    name_en:           string;
+    name_ar:           string | null;
+    title:             string;
+    title_en:          string;
+    title_ar:          string | null;
+    bio:               string | null;
+    bio_en:            string | null;
+    bio_ar:            string | null;
+    avatar:            string | null;
+    email:             string | null;
+    linkedin_url:      string | null;
+    github_url:        string | null;
+    website_url:       string | null;
+    type:              CreditsType;
+    category:          CreditsCategory;
+    contribution_year: number | null;
+    is_active:         boolean;
+    is_featured:       boolean;
+    sort_order:        number;
+    created_at:        string;
+    updated_at:        string;
+}
+
+export interface CreditsStats {
+    total:               number;
+    active:              number;
+    featured:            number;
+    development_team:    number;
+    faculty_supervisors: number;
+    contributors:        number;
+    sponsors:            number;
+}
+
 // ─── Core Domain Types ────────────────────────────────────────────────────────
 
 export type UserRole = 'super_admin' | 'admin' | 'student';
@@ -200,6 +253,61 @@ export interface UserProfile {
     skills: string[] | null;
 }
 
+// ─── Notification Domain ──────────────────────────────────────────────────────
+
+export type NotificationCategory =
+    | 'project' | 'review' | 'member' | 'award'
+    | 'competition' | 'system' | 'account';
+
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface AppNotification {
+    id: string;
+    category: NotificationCategory;
+    title: string;
+    title_ar: string;
+    body: string | null;
+    body_ar: string | null;
+    action_url: string | null;
+    icon: string;
+    color: string;
+    priority: NotificationPriority;
+    project_id: string | null;
+    read_at: string | null;
+    created_at: string;
+}
+
+// ─── SEO Meta (passed per-page from controllers) ──────────────────────────────
+
+export interface SeoMeta {
+    title: string;
+    site_name?: string;
+    description?: string;
+    keywords?: string;
+    canonical?: string;
+    robots?: string;
+    locale?: string;
+    og?: {
+        title?: string;
+        description?: string;
+        image?: string;
+        image_alt?: string;
+        url?: string;
+        type?: string;
+        site_name?: string;
+        locale?: string;
+    };
+    twitter?: {
+        card?: string;
+        site?: string;
+        title?: string;
+        description?: string;
+        image?: string;
+        image_alt?: string;
+    };
+    schema?: Record<string, unknown> | null;
+}
+
 // ─── Inertia Shared Props ─────────────────────────────────────────────────────
 
 export interface SharedProps {
@@ -222,6 +330,10 @@ export interface SharedProps {
         location: string;
     };
     site: Record<string, string | number | boolean | null>;
+    seo: SeoMeta;
+    notifications: {
+        unread_count: number;
+    } | null;
 }
 
 // ─── Site Settings Groups ─────────────────────────────────────────────────────
@@ -434,4 +546,158 @@ export interface SearchResult {
     path: string;
     extension: string | null;
     language: string | null;
+}
+
+// ─── Competition Domain ───────────────────────────────────────────────────────
+
+export type CompetitionStatus = 'upcoming' | 'active' | 'completed' | 'cancelled';
+export type CompetitionLevel  = 'university' | 'national' | 'regional' | 'international';
+export type SubmissionStatus  = 'submitted' | 'shortlisted' | 'finalist' | 'winner' | 'disqualified' | 'withdrawn';
+export type AwardRank         = 'first' | 'second' | 'third' | 'honorable_mention' | 'finalist' | 'special';
+
+export interface CompetitionCreator {
+    id: number;
+    name: string;
+}
+
+export interface Competition {
+    id: string;
+    name: string;
+    name_ar: string | null;
+    slug: string;
+    description: string | null;
+    description_ar: string | null;
+    organizer: string | null;
+    organizer_logo: string | null;
+    website_url: string | null;
+    cover_image: string | null;
+    level: CompetitionLevel;
+    status: CompetitionStatus;
+    start_date: string | null;
+    end_date: string | null;
+    academic_year: number | null;
+    is_featured: boolean;
+    sort_order: number;
+    projects_count: number;
+    creator: CompetitionCreator | null;
+    created_at: string;
+}
+
+export interface CompetitionStats {
+    total: number;
+    active: number;
+    upcoming: number;
+    completed: number;
+    total_projects: number;
+}
+
+export interface CompetitionProjectEntry {
+    id: string;
+    title: string;
+    slug: string;
+    thumbnail: string | null;
+    department: string | null;
+    academic_year: number | null;
+    owner: { id: number; name: string } | null;
+    category: { id: string; name: string; color: string | null } | null;
+    submission_status: SubmissionStatus;
+    award_rank: AwardRank | null;
+    submission_number: number | null;
+    submission_notes: string | null;
+    submitted_at: string | null;
+}
+
+// ─── Award Domain ─────────────────────────────────────────────────────────────
+
+export interface Award {
+    id: string;
+    title: string;
+    title_ar: string | null;
+    issuer: string | null;
+    rank: AwardRank | null;
+    awarded_at: string | null;
+    academic_year: number | null;
+    notes: string | null;
+    is_verified: boolean;
+    project: {
+        id: string;
+        title: string;
+        slug: string;
+        thumbnail: string | null;
+        category: { id: string; name: string; color: string | null } | null;
+    } | null;
+    competition: {
+        id: string;
+        name: string;
+        name_ar: string | null;
+        academic_year: number | null;
+    } | null;
+    verifier: { id: number; name: string } | null;
+    created_at: string;
+}
+
+export interface AwardStats {
+    total: number;
+    verified: number;
+    first: number;
+    second: number;
+    third: number;
+    special: number;
+}
+
+// ─── Hall of Fame Domain ──────────────────────────────────────────────────────
+
+export interface HofTopProject {
+    id: string;
+    rank: number;
+    title: string;
+    title_ar: string | null;
+    slug: string;
+    thumbnail: string | null;
+    category: string | null;
+    category_ar: string | null;
+    department: string | null;
+    academic_year: number | null;
+    views_count: number;
+    stars_count: number;
+    awards_count: number;
+    hof_score: number;
+    tags: string[];
+}
+
+export interface HofTopStudent {
+    id: number;
+    rank: number;
+    name: string;
+    avatar: string | null;
+    university: string | null;
+    department: string | null;
+    graduation_year: number | null;
+    total_points: number;
+    projects_count: number;
+    awards_count: number;
+    stars_count: number;
+    views_count: number;
+    top_skills: string[];
+}
+
+export interface HofAward {
+    id: string;
+    title: string;
+    title_ar: string | null;
+    issuer: string | null;
+    rank: AwardRank | null;
+    awarded_at: string | null;
+    academic_year: number | null;
+    is_verified: boolean;
+    project_title: string | null;
+    project_slug: string | null;
+    competition_name: string | null;
+}
+
+export interface HofStats {
+    projects_judged: number;
+    students_competed: number;
+    total_awards: number;
+    competitions_held: number;
 }

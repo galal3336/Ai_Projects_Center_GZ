@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SetLocale
 {
-    private const SUPPORTED = ['en', 'ar'];
+    public const SUPPORTED = ['en', 'ar'];
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -29,27 +29,29 @@ class SetLocale
 
     private function resolveLocale(Request $request): string
     {
-        // 1. Authenticated user preference
-        if (Auth::check() && in_array(Auth::user()->locale, self::SUPPORTED)) {
+        // 1. Route segment: /{locale}/... (SEO-friendly URLs)
+        $segment = $request->segment(1);
+        if ($segment && in_array($segment, self::SUPPORTED, true)) {
+            if (session('locale') !== $segment) {
+                session(['locale' => $segment]);
+            }
+            return $segment;
+        }
+
+        // 2. Authenticated user preference (stored in DB)
+        if (Auth::check() && in_array(Auth::user()->locale, self::SUPPORTED, true)) {
             return Auth::user()->locale;
         }
 
-        // 2. Session
+        // 3. Session (set by switcher or previous route segment)
         $sessionLocale = session('locale');
-        if ($sessionLocale && in_array($sessionLocale, self::SUPPORTED)) {
+        if ($sessionLocale && in_array($sessionLocale, self::SUPPORTED, true)) {
             return $sessionLocale;
-        }
-
-        // 3. Query param (for switching)
-        $queryLocale = $request->query('locale');
-        if ($queryLocale && in_array($queryLocale, self::SUPPORTED)) {
-            session(['locale' => $queryLocale]);
-            return $queryLocale;
         }
 
         // 4. Accept-Language header
         $browserLocale = substr($request->getPreferredLanguage(self::SUPPORTED) ?? '', 0, 2);
-        if (in_array($browserLocale, self::SUPPORTED)) {
+        if (in_array($browserLocale, self::SUPPORTED, true)) {
             return $browserLocale;
         }
 

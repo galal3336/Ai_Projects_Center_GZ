@@ -3,7 +3,7 @@ import StarButton from '@/components/social/StarButton';
 import BookmarkButton from '@/components/social/BookmarkButton';
 import FollowButton from '@/components/social/FollowButton';
 import { Head, Link } from '@inertiajs/react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     motion,
     useScroll,
@@ -414,9 +414,27 @@ function ReadmeRenderer({ content }: { content: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProjectDetails() {
-    const [activeSection] = useState<NavSection>('overview');
+    const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [activeGallery, setActiveGallery] = useState(0);
     const heroRef = useRef<HTMLDivElement>(null);
+
+    const updateActive = useCallback(() => {
+        const sections = NAV_ITEMS.map(({ id }) => document.getElementById(id));
+        const scrollY = window.scrollY + 120;
+        for (let i = sections.length - 1; i >= 0; i--) {
+            const el = sections[i];
+            if (el && el.offsetTop <= scrollY) {
+                setActiveSection(NAV_ITEMS[i].id);
+                return;
+            }
+        }
+        setActiveSection('overview');
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('scroll', updateActive, { passive: true });
+        return () => window.removeEventListener('scroll', updateActive);
+    }, [updateActive]);
 
     const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
     const heroY = useTransform(scrollYProgress, [0, 1], ['0%', '25%']);
